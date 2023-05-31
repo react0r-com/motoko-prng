@@ -11,85 +11,94 @@
 ///
 /// Copyright: 2023 MR Research AG\
 /// Main author: react0r-com\
-/// Contributors: Timo Hanke (timohanke) 
+/// Contributors: Timo Hanke (timohanke)
 
 import { range } "mo:base/Iter";
 
 module {
-  /// Constructs a Seiran128 generator.
-  ///
-  /// Example:
-  /// ```motoko
-  /// import Prng "mo:prng"; 
-  /// let rng = Prng.Seiran128(); 
-  /// ```  
-  public class Seiran128() {
 
+
+  public type Seiran128State() {
     // state
     var a : Nat64 = 0;
     var b : Nat64 = 0;
 
-    /// Initializes the PRNG state with a particular seed.
-    ///  
-    /// Example:
-    /// ```motoko
-    /// import Prng "mo:prng"; 
-    /// let rng = Prng.Seiran128(); 
-    /// rng.init(0);
-    /// ``` 
-    public func init(seed : Nat64) {
-      a := seed *% 6364136223846793005 +% 1442695040888963407;
-      b := a *% 6364136223846793005 +% 1442695040888963407;
-    };
+  };
 
-    /// Returns one output and advances the PRNG's state.
-    ///  
-    /// Example:
-    /// ```motoko
-    /// let rng = Prng.Seiran128(); 
-    /// rng.init(0);
-    /// rng.next(); // -> 11_505_474_185_568_172_049
-    /// ``` 
-    public func next() : Nat64 {
-      let result = (((a +% b) *% 9) <<> 29) +% a;
+  /// Initializes the PRNG state with a particular seed.
+  ///
+  /// Example:
+  /// ```motoko
+  /// import Prng "mo:prng";
+  /// let rng = Prng.Seiran128();
+  /// rng.init(0);
+  /// ```
+  public func init(state : Seiran128State, seed : Nat64) {
+    state.a := seed *% 6364136223846793005 +% 1442695040888963407;
+    state.b := state.a *% 6364136223846793005 +% 1442695040888963407;
+  };
 
-      let a_ = a;
-      a := a ^ (b <<> 29);
-      b := a_ ^ (b << 9);
+  /// Returns one output and advances the PRNG's state.
+  ///
+  /// Example:
+  /// ```motoko
+  /// let rng = Prng.Seiran128();
+  /// rng.init(0);
+  /// rng.next(); // -> 11_505_474_185_568_172_049
+  /// ```
+  public func next(state : Seiran128State) : Nat64 {
+    let result = (((state.a +% state.b) *% 9) <<> 29) +% state.a;
 
-      result;
-    };
+    let a_ = state.a;
+    state.a := state.a ^ (state.b <<> 29);
+    state.b := a_ ^ (state.b << 9);
 
-    // Given a bit polynomial, advances the state (see below functions)
-    func jump(jumppoly : [Nat64]) {
-      var t0 : Nat64 = 0;
-      var t1 : Nat64 = 0;
+    result;
+  };
 
-      for (jp in jumppoly.vals()) {
-        var w = jp;
-        for (_ in range(0, 63)) {
-          if (w & 1 == 1) {
-            t0 ^= a;
-            t1 ^= b;
-          };
+  // Given a bit polynomial, advances the state (see below functions)
+  func jump(state : Seiran128State, jumppoly : [Nat64]) {
+    var t0 : Nat64 = 0;
+    var t1 : Nat64 = 0;
 
-          w >>= 1;
-          ignore next();
+    for (jp in jumppoly.vals()) {
+      var w = jp;
+      for (_ in range(0, 63)) {
+        if (w & 1 == 1) {
+          t0 ^= state.a;
+          t1 ^= state.b;
         };
-      };
 
-      a := t0;
-      b := t1;
+        w >>= 1;
+        ignore next();
+      };
     };
 
-    /// Advances the state 2^32 times.
-    public func jump32() = jump([0x40165CBAE9CA6DEB, 0x688E6BFC19485AB1]);
+    state.a := t0;
+    state.b := t1;
+  };
 
-    /// Advances the state 2^64 times.
-    public func jump64() = jump([0xF4DF34E424CA5C56, 0x2FE2DE5C2E12F601]);
+  /// Advances the state 2^32 times.
+  public func jump32(state : Seiran128State) = jump(state, [0x40165CBAE9CA6DEB, 0x688E6BFC19485AB1]);
 
-    /// Advances the state 2^96 times.
-    public func jump96() = jump([0x185F4DF8B7634607, 0x95A98C7025F908B2]);
+  /// Advances the state 2^64 times.
+  public func jump64(state : Seiran128State) = jump(state, [0xF4DF34E424CA5C56, 0x2FE2DE5C2E12F601]);
+
+  /// Advances the state 2^96 times.
+  public func jump96(state : Seiran128State) = jump(state, [0x185F4DF8B7634607, 0x95A98C7025F908B2]);
+
+  /// Constructs a Seiran128 generator.
+  ///
+  /// Example:
+  /// ```motoko
+  /// import Prng "mo:prng";
+  /// let rng = Prng.Seiran128();
+  /// ```
+  public class Seiran128()
+  {
+    Seiran128State state;
+    public func init(seed : Nat64) { init(state, seed);};
+    public func next() : Nat64 { return next(state;};
   };
 
   /// Constructs an SFC 64-bit generator.
@@ -97,15 +106,15 @@ module {
   ///
   /// Example:
   /// ```motoko
-  /// import Prng "mo:prng"; 
-  /// let rng = Prng.SFC64(24, 11, 3); 
-  /// ```  
+  /// import Prng "mo:prng";
+  /// let rng = Prng.SFC64(24, 11, 3);
+  /// ```
   /// For convenience, the function `SFC64a()` returns a generator constructed
   /// with the recommended parameter set (24, 11, 3).
   /// ```motoko
-  /// import Prng "mo:prng"; 
-  /// let rng = Prng.SFC64a(); 
-  /// ```  
+  /// import Prng "mo:prng";
+  /// let rng = Prng.SFC64a();
+  /// ```
   public class SFC64(p : Nat64, q : Nat64, r : Nat64) {
     // state
     var a : Nat64 = 0;
@@ -114,34 +123,34 @@ module {
     var d : Nat64 = 0;
 
     /// Initializes the PRNG state with a particular seed
-    ///  
+    ///
     /// Example:
     /// ```motoko
-    /// import Prng "mo:prng"; 
-    /// let rng = Prng.SFC64a(); 
+    /// import Prng "mo:prng";
+    /// let rng = Prng.SFC64a();
     /// rng.init(0);
-    /// ``` 
+    /// ```
     public func init(seed : Nat64) = init3(seed, seed, seed);
 
     /// Initializes the PRNG state with a hardcoded seed.
     /// No argument is required.
-    ///  
+    ///
     /// Example:
     /// ```motoko
-    /// import Prng "mo:prng"; 
-    /// let rng = Prng.SFC64a(); 
+    /// import Prng "mo:prng";
+    /// let rng = Prng.SFC64a();
     /// rng.init_pre();
-    /// ``` 
+    /// ```
     public func init_pre() = init(0xcafef00dbeef5eed);
 
     /// Initializes the PRNG state with three state variables
-    ///  
+    ///
     /// Example:
     /// ```motoko
-    /// import Prng "mo:prng"; 
-    /// let rng = Prng.SFC64a(); 
+    /// import Prng "mo:prng";
+    /// let rng = Prng.SFC64a();
     /// rng.init3(0, 1, 2);
-    /// ``` 
+    /// ```
     public func init3(seed1 : Nat64, seed2 : Nat64, seed3 : Nat64) {
       a := seed1;
       b := seed2;
@@ -152,13 +161,13 @@ module {
     };
 
     /// Returns one output and advances the PRNG's state
-    ///  
+    ///
     /// Example:
     /// ```motoko
-    /// let rng = Prng.SFC64a(); 
+    /// let rng = Prng.SFC64a();
     /// rng.init(0);
-    /// rng.next(); // -> 4_237_781_876_154_851_393 
-    /// ``` 
+    /// rng.next(); // -> 4_237_781_876_154_851_393
+    /// ```
     public func next() : Nat64 {
       let tmp = a +% b +% d;
       a := b ^ (b >> q);
@@ -172,19 +181,19 @@ module {
   /// Constructs an SFC 32-bit generator.
   /// The recommended constructor arguments are:
   ///  a) 21, 9, 3 or
-  ///  b) 15, 8, 3 
+  ///  b) 15, 8, 3
   ///
   /// Example:
   /// ```motoko
-  /// import Prng "mo:prng"; 
-  /// let rng = Prng.SFC32(21, 9, 3); 
-  /// ```  
+  /// import Prng "mo:prng";
+  /// let rng = Prng.SFC32(21, 9, 3);
+  /// ```
   /// For convenience, the functions `SFC32a()` and `SFC32b()` return
   /// generators with the parameter sets a) and b) given above.
   /// ```motoko
-  /// import Prng "mo:prng"; 
-  /// let rng = Prng.SFC32a(); 
-  /// ```  
+  /// import Prng "mo:prng";
+  /// let rng = Prng.SFC32a();
+  /// ```
   public class SFC32(p : Nat32, q : Nat32, r : Nat32) {
     var a : Nat32 = 0;
     var b : Nat32 = 0;
@@ -192,34 +201,34 @@ module {
     var d : Nat32 = 0;
 
     /// Initializes the PRNG state with a particular seed
-    ///  
+    ///
     /// Example:
     /// ```motoko
-    /// import Prng "mo:prng"; 
-    /// let rng = Prng.SFC32(); 
+    /// import Prng "mo:prng";
+    /// let rng = Prng.SFC32();
     /// rng.init(0);
-    /// ``` 
+    /// ```
     public func init(seed : Nat32) = init3(seed, seed, seed);
 
     /// Initializes the PRNG state with a hardcoded seed.
     /// No argument is required.
-    ///  
+    ///
     /// Example:
     /// ```motoko
-    /// import Prng "mo:prng"; 
-    /// let rng = Prng.SFC32a(); 
+    /// import Prng "mo:prng";
+    /// let rng = Prng.SFC32a();
     /// rng.init_pre();
-    /// ``` 
+    /// ```
     public func init_pre() = init(0xbeef5eed);
 
     /// Initializes the PRNG state with three seeds
-    ///  
+    ///
     /// Example:
     /// ```motoko
-    /// import Prng "mo:prng"; 
-    /// let rng = Prng.SFC32a(); 
+    /// import Prng "mo:prng";
+    /// let rng = Prng.SFC32a();
     /// rng.init3(0, 1, 2);
-    /// ``` 
+    /// ```
     public func init3(seed1 : Nat32, seed2 : Nat32, seed3 : Nat32) {
       a := seed1;
       b := seed2;
@@ -230,13 +239,13 @@ module {
     };
 
     /// Returns one output and advances the PRNG's state
-    ///  
+    ///
     /// Example:
     /// ```motoko
-    /// let rng = Prng.SFC32a(); 
+    /// let rng = Prng.SFC32a();
     /// rng.init(0);
-    /// rng.next(); // -> 1_363_572_419 
-    /// ``` 
+    /// rng.next(); // -> 1_363_572_419
+    /// ```
     public func next() : Nat32 {
       let tmp = a +% b +% d;
       a := b ^ (b >> q);
@@ -253,7 +262,7 @@ module {
 
   /// Ok to use
   public func SFC32a() : SFC32 { SFC32(21, 9, 3) };
-  
+
   /// Ok to use
   public func SFC32b() : SFC32 { SFC32(15, 8, 3) };
 
