@@ -1,4 +1,5 @@
 import Seiran128 "../src/Seiran128";
+import Principal "mo:base/Principal";
 //import Debug "mo:base/Debug";
 
 // --- Seiran tests ---
@@ -33,4 +34,20 @@ assert (prng.next() == 0x7DA59A41DC8721F2);
 //Debug.print("Testing value in array");
 prng.init(401);
 let buf = prng.nextAsArray(9);
+//for (v in buf.vals()) { Debug.print(Nat8.toText(v)); };
 assert(buf == [ 0x5F, 0x30, 0x45, 0xD2, 0x29, 0x36, 0x4E, 0x8D, 0x31 ]);
+
+//Debug.print("Testing value in blob");
+let blob = prng.nextAsBlob(9);
+assert(blob == "\1E\CA\D8\7A\C1\BD\46\42\7C");
+
+//Debug.print("Testing value in text");
+prng.init(401);
+let text = prng.nextAsText(9);
+//Debug.print(text);
+assert(text == "_`E'1LBYa");
+
+//Debug.print("Testing value in principal");
+let p = prng.nextAsPrincipal();
+//Debug.print(Principal.toText(p));
+assert(Principal.toText(p) == "ee2ob-rq6zl-mhvqn-5izbh-z2y");

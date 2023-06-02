@@ -62,38 +62,51 @@ module Static {
     result;
   };
 
-  public func nextAsArray(state : State, len : Nat) : [Nat8] {
+  func nextBitsAsArray(state : State, len : Nat, nbits: Nat, lower: Nat8, upper: Nat8) : [Nat8] {
     let buf = Array.init<Nat8>(len, 0);
-    if (len == 0) {
+    if (len == 0 or nbits == 0 or lower == upper) {
       return Array.freeze<Nat8>(buf);
     };
 
-    var c : Nat = 8;
-    var t : Nat64 = next(state);
-    //let ceil_len = len/8 + (len%8==0?0:1);
-    for (i in range(0, len-1)) {
-      buf[i] := Nat8.fromNat(Nat64.toNat(t & 0xff));
-      t >>= 8;
-      c -= 1;
-      if (c <= 0) {
-        c := 8;
-        t := next(state);
+    var bits : Nat = 0;
+    var rand : Nat64 = 0;
+    var i : Nat = 0;
+    while (i < len) {
+      if (bits < nbits) {
+        bits := 64;
+        rand := next(state);
+      };
+      buf[i] := Nat8.fromNat(Nat64.toNat(rand & Nat64.fromNat(2**nbits-1)));
+      rand >>= Nat64.fromNat(nbits);
+      bits -= nbits;
+
+      if (buf[i] >= lower and buf[i] <= upper) {
+        i += 1;
       };
     };
     return Array.freeze<Nat8>(buf)
+  };
+
+  public func nextAsArray(state : State, len : Nat) : [Nat8] {
+    return nextBitsAsArray(state, len, 8, 0x00, 0xFF);
   };
 
   public func nextAsBlob(state : State, len : Nat) : Blob {
     return Blob.fromArray(nextAsArray(state, len));
   };
 
-  public func nextAsText(state : State, len : Nat) : ?Text {
-    return Text.decodeUtf8(nextAsBlob(state, len));
-  };
-
   public func nextAsPrincipal(state : State) : Principal {
     return Principal.fromBlob(nextAsBlob(state, 10));
   };
+
+  public func nextAsText(state : State, len : Nat) : Text {
+    let buf = nextBitsAsArray(state, len, 7, 0x20, 0x7E);
+    switch(Text.decodeUtf8(Blob.fromArray(buf))) {
+    case (?t) return t;
+    case (null) { assert(false); return ""; }
+    }
+  };
+
 
   // Given a bit polynomial, advances the state (see below functions)
   func jump(state : State, jumppoly : [Nat64]) {
@@ -145,7 +158,7 @@ module Static {
     public func jump96() { Static.jump96(state); };
     public func nextAsArray(len : Nat) : [Nat8] { Static.nextAsArray(state, len); };
     public func nextAsBlob(len : Nat) : Blob { Static.nextAsBlob(state, len); };
-    public func nextAsText(len : Nat) : ?Text { Static.nextAsText(state, len); };
+    public func nextAsText(len : Nat) : Text { Static.nextAsText(state, len); };
     public func nextAsPrincipal() : Principal { Static.nextAsPrincipal(state); };
   };
 };
