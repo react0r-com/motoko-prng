@@ -1,36 +1,6 @@
-import Prng "../src";
+import Prng "../src/Class";
+import Principal "mo:base/Principal";
 //import Debug "mo:base/Debug";
-
-// --- Seiran tests ---
-let prng = Prng.Seiran128();
-prng.init(401);
-
-//Debug.print("Testing first values");
-for (
-  v in [
-    0x8D4E3629D245305F : Nat64,
-    0x941C2B08EB30A631 : Nat64,
-    0x4246BDC17AD8CA1E : Nat64,
-    0x5D5DA3E87E82EB7C : Nat64,
-  ].vals()
-) {
-  let n = prng.next();
-  assert (v == n);
-};
-
-//Debug.print("Testing value after jump32");
-prng.jump32();
-assert (prng.next() == 0x3F6239D7246826A9);
-
-//Debug.print("Testing value after jump64");
-prng.jump64();
-assert (prng.next() == 0xD780EC14D59D2D33);
-
-//Debug.print("Testing value after jump96");
-prng.jump96();
-assert (prng.next() == 0x7DA59A41DC8721F2);
-
-// --- SFC tests ---
 
 let prng1 = Prng.SFC64a();
 prng1.init_pre();
@@ -95,6 +65,54 @@ for (
   let n = prng4.next();
   assert (v == n);
 };
+
+let prng5 = Prng.SFC64a();
+prng5.init_pre();
+
+//Debug.print("Testing SFC64 in array");
+let buf = prng5.nextAsArray(9);
+//for (v in buf.vals()) { Debug.print(Nat8.toText(v)); };
+assert(buf == [ 0x52, 0x60, 0x5E, 0x43, 0x72, 0x4D, 0x5C, 0xC8, 0x64 ]);
+
+//Debug.print("Testing SFC64 in blob");
+let blob = prng5.nextAsBlob(9);
+assert(blob == "\23\3B\EE\FB\45\70\3B\8F\94");
+
+prng5.init_pre();
+//Debug.print("Testing SFC64 in text");
+let text = prng5.nextAsText(9);
+//Debug.print(text);
+assert(text == "R@y$..Hd4");
+
+//Debug.print("Testing SFC64 in principal");
+let p = prng5.nextAsPrincipal();
+//Debug.print(Principal.toText(p));
+assert(Principal.toText(p) == "khqbs-njdhp-xpwrl-qhohz-i2i");
+
+
+let prng6 = Prng.SFC32a();
+prng6.init_pre();
+
+//Debug.print("Testing SFC32 in array");
+let buf2 = prng6.nextAsArray(5);
+//for (v in buf2.vals()) { Debug.print(Nat8.toText(v)); };
+assert(buf2 == [ 0xEA, 0x92, 0xBE, 0xB1, 0xE6]);
+
+//Debug.print("Testing SFC32 in blob");
+let blob2 = prng6.nextAsBlob(5);
+assert(blob2 == "\05\41\7C\F5\48");
+
+prng6.init_pre();
+//Debug.print("Testing SFC32 in text");
+let text2 = prng6.nextAsText(5);
+//Debug.print(text2);
+assert(text2 == "j%zf[");
+
+//Debug.print("Testing SFC32 in principal");
+let p2 = prng6.nextAsPrincipal();
+//Debug.print(Principal.toText(p2));
+assert(Principal.toText(p2) == "dbgpe-tqfif-6pksf-v67ix-nna");
+
 
 //Debug.print("Testing SFC64 (numpy)");
 // The seed values were created with numpy like this:

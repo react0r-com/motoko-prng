@@ -1,9 +1,9 @@
-import Seiran128 "../src/Seiran128";
+import Prng "../src/Class";
 import Principal "mo:base/Principal";
 //import Debug "mo:base/Debug";
 
 // --- Seiran tests ---
-let prng = Seiran128.Seiran128();
+let prng = Prng.Seiran128();
 prng.init(401);
 
 //Debug.print("Testing first values");

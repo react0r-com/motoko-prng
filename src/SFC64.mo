@@ -1,10 +1,10 @@
-/// Seiran128 pseudo-random number generator
+/// Small Fast Chaoic (SFC) pseudo-random number generator
 ///
-/// The algorithm delivers deterministic statistical randomness,
+/// The algorithms deliver deterministic statistical randomness,
 /// not cryptographic randomness.
 ///
-/// Algorithm: 128-bit Seiran PRNG\
-/// See: https://github.com/andanteyk/prng-seiran
+/// SFC64 and SFC32 (Chris Doty-Humphrey’s Small Fast Chaotic PRNG)\
+/// See: https://numpy.org/doc/stable/reference/random/bit_generators/sfc64.html
 ///
 /// Copyright: 2023 MR Research AG\
 /// Main author: react0r-com\
@@ -19,47 +19,82 @@ import Text "mo:base/Text";
 import Principal "mo:base/Principal";
 
 module {
-
   public type State = {
     // state
     var a : Nat64;
     var b : Nat64;
+    var c : Nat64;
+    var d : Nat64;
+
+    // parameters
+    var p : Nat64;
+    var q : Nat64;
+    var r : Nat64;
   };
 
-  public func new() : State = {
+  public func new(p : Nat64, q : Nat64, r : Nat64) : State = {
     var a = 0;
     var b = 0;
-  };
-  /// Initializes the PRNG state with a particular seed.
-  ///
-  /// Example:
-  /// ```motoko
-  /// import Seiran128 "mo:prng/Seiran128";
-  /// let state = Seiran128.new();
-  /// Seiran128.init(state, 1234);
-  /// ```
-  public func init(state : State, seed : Nat64) {
-    state.a := seed *% 6364136223846793005 +% 1442695040888963407;
-    state.b := state.a *% 6364136223846793005 +% 1442695040888963407;
+    var c = 0;
+    var d = 0;
+    var p = p;
+    var q = q;
+    var r = r;
   };
 
-  /// Returns one output and advances the PRNG's state.
+  /// Initializes the PRNG state with a particular seed
   ///
   /// Example:
   /// ```motoko
-  /// import Seiran128 "mo:prng/Seiran128";
-  /// let state = Seiran128.new();
-  /// Seiran128.init(state, 0);
-  /// Seiran128.next(state); // -> 11_505_474_185_568_172_049
+  /// import SFC64 "mo:prng/SFC64";
+  /// let state = SFC64.new();
+  /// SFC64.init(state, 1234);
+  /// ```
+  public func init(state : State, seed : Nat64) = init3(state, seed, seed, seed);
+
+  /// Initializes the PRNG state with a hardcoded seed.
+  /// No argument is required.
+  ///
+  /// Example:
+  /// ```motoko
+  /// import SFC64 "mo:prng/SFC64";
+  /// let state = SFC64.new();
+  /// SFC64.init_pre(state);
+  /// ```
+  public func init_pre(state : State) = init(state, 0xcafef00dbeef5eed);
+
+  /// Initializes the PRNG state with three state variables
+  ///
+  /// Example:
+  /// ```motoko
+  /// import SFC64 "mo:prng/SFC64";
+  /// let state = SFC64.new();
+  /// SFC64.init3(state, 0, 1, 2);
+  /// ```
+  public func init3(state : State, seed1 : Nat64, seed2 : Nat64, seed3 : Nat64) {
+    state.a := seed1;
+    state.b := seed2;
+    state.c := seed3;
+    state.d := 1;
+
+    for (_ in range(0, 11)) ignore next(state);
+  };
+
+  /// Returns one output and advances the PRNG's state
+  ///
+  /// Example:
+  /// ```motoko
+  /// import SFC64 "mo:prng/SFC64";
+  /// let state = SFC64.new();
+  /// SFC64.next(state); // -> 1_363_572_419
   /// ```
   public func next(state : State) : Nat64 {
-    let result = (((state.a +% state.b) *% 9) <<> 29) +% state.a;
-
-    let a_ = state.a;
-    state.a := state.a ^ (state.b <<> 29);
-    state.b := a_ ^ (state.b << 9);
-
-    result;
+    let tmp = state.a +% state.b +% state.d;
+    state.a := state.b ^ (state.b >> state.q);
+    state.b := state.c +% (state.c << state.r);
+    state.c := (state.c <<> state.p) +% tmp;
+    state.d +%= 1;
+    tmp;
   };
 
   func nextBitsAsArray(state : State, len : Nat, nbits: Nat, lower: Nat8, upper: Nat8) : [Nat8] {
@@ -91,9 +126,9 @@ module {
   ///
   /// Example:
   /// ```motoko
-  /// import Seiran128 "mo:prng/Seiran128";
-  /// let state = Seiran128.new();
-  /// Seiran128.nextAsArray(state, 9);
+  /// import SFC64 "mo:prng/SFC64";
+  /// let state = SFC64.new();
+  /// SFC64.nextAsArray(state, 9);
   /// ```
   public func nextAsArray(state : State, len : Nat) : [Nat8] {
     return nextBitsAsArray(state, len, 8, 0x00, 0xFF);
@@ -117,36 +152,5 @@ module {
     case (null) { assert(false); return ""; }
     }
   };
-
-  // Given a bit polynomial, advances the state (see below functions)
-  func jump(state : State, jumppoly : [Nat64]) {
-    var t0 : Nat64 = 0;
-    var t1 : Nat64 = 0;
-
-    for (jp in jumppoly.vals()) {
-      var w = jp;
-      for (_ in range(0, 63)) {
-        if (w & 1 == 1) {
-          t0 ^= state.a;
-          t1 ^= state.b;
-        };
-
-        w >>= 1;
-        ignore next(state);
-      };
-    };
-
-    state.a := t0;
-    state.b := t1;
-  };
-
-  /// Advances the state 2^32 times.
-  public func jump32(state : State) = jump(state, [0x40165CBAE9CA6DEB, 0x688E6BFC19485AB1]);
-
-  /// Advances the state 2^64 times.
-  public func jump64(state : State) = jump(state, [0xF4DF34E424CA5C56, 0x2FE2DE5C2E12F601]);
-
-  /// Advances the state 2^96 times.
-  public func jump96(state : State) = jump(state, [0x185F4DF8B7634607, 0x95A98C7025F908B2]);
 
 };
