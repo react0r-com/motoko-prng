@@ -1,4 +1,4 @@
-/// Small Fast Chaoic (SFC) pseudo-random number generator
+/// Small Fast Chaotic (SFC) pseudo-random number generator
 ///
 /// The algorithms deliver deterministic statistical randomness,
 /// not cryptographic randomness.
@@ -12,11 +12,14 @@
 
 import { range } "mo:base/Iter";
 import Nat8 "mo:base/Nat8";
+import Nat16 "mo:base/Nat16";
 import Nat32 "mo:base/Nat32";
+import Nat64 "mo:base/Nat64";
 import Array "mo:base/Array";
 import Blob "mo:base/Blob";
 import Text "mo:base/Text";
 import Principal "mo:base/Principal";
+import { next32BitsAsArray } "common";
 
 module {
   public type State = {
@@ -97,60 +100,48 @@ module {
     tmp;
   };
 
-  func nextBitsAsArray(state : State, len : Nat, nbits: Nat, lower: Nat8, upper: Nat8) : [Nat8] {
-    let buf = Array.init<Nat8>(len, 0);
-    if (len == 0 or nbits == 0 or lower == upper) {
-      return Array.freeze<Nat8>(buf);
-    };
-
-    var bits : Nat = 0;
-    var rand : Nat32 = 0;
-    var i : Nat = 0;
-    while (i < len) {
-      if (bits < nbits) {
-        bits := 32;
-        rand := next(state);
-      };
-      buf[i] := Nat8.fromNat(Nat32.toNat(rand & Nat32.fromNat(2**nbits-1)));
-      rand >>= Nat32.fromNat(nbits);
-      bits -= nbits;
-
-      if (buf[i] >= lower and buf[i] <= upper) {
-        i += 1;
-      };
-    };
-    return Array.freeze<Nat8>(buf)
-  };
-
   /// Returns an Array of `len` size and advances the PRNG's state.
   ///
   /// Example:
   /// ```motoko
   /// import SFC32 "mo:prng/SFC32";
   /// let state = SFC32.new();
-  /// SFC32.nextAsArray(state, 9);
+  /// SFC32.nextArray(state, 9);
   /// ```
-  public func nextAsArray(state : State, len : Nat) : [Nat8] {
-    return nextBitsAsArray(state, len, 8, 0x00, 0xFF);
+  public func nextArray(state : State, len : Nat) : [Nat8] {
+    return next32BitsAsArray<State, Nat8>(state, next,
+                                          func(n : Nat32) { Nat8.fromNat(Nat32.toNat(n)) },
+                                          null,
+                                          len, 8);
   };
 
   /// Returns a Blob of `len` size and advances the PRNG's state.
-  public func nextAsBlob(state : State, len : Nat) : Blob {
-    return Blob.fromArray(nextAsArray(state, len));
+  public func nextBlob(state : State, len : Nat) : Blob {
+    return Blob.fromArray(nextArray(state, len));
   };
 
   /// Returns a random Principal and advances the PRNG's state.
-  public func nextAsPrincipal(state : State) : Principal {
-    return Principal.fromBlob(nextAsBlob(state, 10));
+  public func nextPrincipal(state : State, len : Nat) : Principal {
+    return Principal.fromBlob(nextBlob(state, len));
   };
 
   /// Returns ASCII Text of `len` size and advances the PRNG's state.
-  public func nextAsText(state : State, len : Nat) : Text {
-    let buf = nextBitsAsArray(state, len, 7, 0x20, 0x7E);
+  public func nextText(state : State, len : Nat) : Text {
+    let buf = next32BitsAsArray<State, Nat8>(state, next,
+                                             func(n : Nat32) { Nat8.fromNat(Nat32.toNat(n)) },
+                                             ?(func(n : Nat8) { n >= 0x20 and n <= 0x7E }),
+                                             len, 7);
     switch(Text.decodeUtf8(Blob.fromArray(buf))) {
     case (?t) return t;
     case (null) { assert(false); return ""; }
     }
   };
+
+  // More convenience functions
+  public func nextBool(state : State) : Bool { next(state) & 0x1 == 1 };
+  public func nextNat8(state : State) : Nat8 { Nat8.fromNat(Nat32.toNat(next(state) & 0xFF)) };
+  public func nextNat16(state : State) : Nat16 { Nat16.fromNat(Nat32.toNat(next(state) & 0xFFFF)) };
+  public func nextNat32(state : State) : Nat32 { next(state) };
+  public func nextNat64(state : State) : Nat64 { return Nat64.fromNat(Nat32.toNat(next(state))) | Nat64.fromNat(Nat32.toNat(next(state)))<<32 };
 
 };

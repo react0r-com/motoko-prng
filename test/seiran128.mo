@@ -33,21 +33,38 @@ assert (prng.next() == 0x7DA59A41DC8721F2);
 
 //Debug.print("Testing value in array");
 prng.init(401);
-let buf = prng.nextAsArray(9);
+let buf = prng.nextArray(9);
 //for (v in buf.vals()) { Debug.print(Nat8.toText(v)); };
 assert(buf == [ 0x5F, 0x30, 0x45, 0xD2, 0x29, 0x36, 0x4E, 0x8D, 0x31 ]);
 
 //Debug.print("Testing value in blob");
-let blob = prng.nextAsBlob(9);
+let blob = prng.nextBlob(9);
 assert(blob == "\1E\CA\D8\7A\C1\BD\46\42\7C");
 
-//Debug.print("Testing value in text");
 prng.init(401);
-let text = prng.nextAsText(9);
+//Debug.print("Testing value in text");
+let text = prng.nextText(9);
 //Debug.print(text);
 assert(text == "_`E'1LBYa");
 
 //Debug.print("Testing value in principal");
-let p = prng.nextAsPrincipal();
+let p = prng.nextPrincipal(10);
 //Debug.print(Principal.toText(p));
 assert(Principal.toText(p) == "ee2ob-rq6zl-mhvqn-5izbh-z2y");
+
+prng.init(401);
+//Debug.print("Testing value in bool");
+assert(prng.nextBool() == true);
+
+prng.init(401);
+//Debug.print("Testing value in Nat8");
+assert(prng.nextNat8() == 0x5F);
+
+//Debug.print("Testing value in Nat16");
+assert(prng.nextNat16() == 0xA631);
+
+//Debug.print("Testing value in Nat32");
+assert(prng.nextNat32() == 0x7AD8CA1E);
+
+//Debug.print("Testing value in Nat64");
+assert(prng.nextNat64() == 0x5D5DA3E87E82EB7C);
